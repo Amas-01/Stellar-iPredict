@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="frontend/public/favicon.svg" width="64" height="64" alt="iPredict logo" />
+  <img src="frontend/public/logo.png" width="96" height="96" alt="iPredict logo" />
 </p>
 
 <h1 align="center">iPredict - Prediction Market on Stellar</h1>
@@ -23,21 +23,28 @@
 
 🎬 [Watch Full MVP Flow on Loom](https://www.loom.com/share/bbfa51fde81645eb9ca13eeba82bc695) — *Wallet connect → browse markets → place bet → view leaderboard → claim reward → referral flow*
 
-## Deployed Contracts
+## Deployed Contracts (Stellar Mainnet)
 
 | Contract | Address | Explorer |
 |----------|---------|----------|
-| Prediction Market | `CCUYXGDJLBDOYADEG4IYBTSPPAAUPOUS2RSQWW3CS4LKLXGJ67LQWUOY` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCUYXGDJLBDOYADEG4IYBTSPPAAUPOUS2RSQWW3CS4LKLXGJ67LQWUOY) |
-| IPREDICT Token | `CCY4A5P3BNQEKXH5EBXTEUFMTHVF5Q7K4S3LYT24VYAUXTEUDEXA7ME5` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCY4A5P3BNQEKXH5EBXTEUFMTHVF5Q7K4S3LYT24VYAUXTEUDEXA7ME5) |
-| Referral Registry | `CAOK6BLEFCNGSFQSPRALKWWL7SS36I7CBVCLBUO2DKQ4PEIOQB4C4QCT` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CAOK6BLEFCNGSFQSPRALKWWL7SS36I7CBVCLBUO2DKQ4PEIOQB4C4QCT) |
-| Leaderboard | `CAR4GTU62PBSR27XDAZATW2HSSXK5DPZWBC4MCKUEF4VGFSW6YPPHRCX` | [stellar.expert](https://stellar.expert/explorer/testnet/contract/CAR4GTU62PBSR27XDAZATW2HSSXK5DPZWBC4MCKUEF4VGFSW6YPPHRCX) |
+| Prediction Market | `CDGNPRYTFDXJLWZE4YDKZXW4IEN2RLPSE4N7VM5HJ7NLPL2QC45GIXI5` | [stellar.expert](https://stellar.expert/explorer/public/contract/CDGNPRYTFDXJLWZE4YDKZXW4IEN2RLPSE4N7VM5HJ7NLPL2QC45GIXI5) |
+| IPREDICT Token | `CAYL4TKNRMXAX5ZLQGFEZ6XOC2QHTCTN5QC2SB5BEEHLVO6SDU2UBLRH` | [stellar.expert](https://stellar.expert/explorer/public/contract/CAYL4TKNRMXAX5ZLQGFEZ6XOC2QHTCTN5QC2SB5BEEHLVO6SDU2UBLRH) |
+| Referral Registry | `CAGJVX6EXMCKKWDJCQFIEJ34CZTHZOGLWJM6KQTGDEXEO723CJZ5773H` | [stellar.expert](https://stellar.expert/explorer/public/contract/CAGJVX6EXMCKKWDJCQFIEJ34CZTHZOGLWJM6KQTGDEXEO723CJZ5773H) |
+| Leaderboard | `CCWWOQSDSO3XXLCMA6A2HYRUFYVNUJZ2HPAMFQSPOB4JWYIBY2HWVTOB` | [stellar.expert](https://stellar.expert/explorer/public/contract/CCWWOQSDSO3XXLCMA6A2HYRUFYVNUJZ2HPAMFQSPOB4JWYIBY2HWVTOB) |
 
-> **Network:** Stellar Testnet | **Admin:** `GDHQ6TNWZ4V2JVCDWEUVW7YKFBXCOQZRRUCT27LAKES3PGOE6JSZMSMD` | **9 markets** (4 resolved + 5 active)
+> **Network:** Stellar Mainnet (Public) | **Admin:** `GDZ4VJWNJPLNU3PAWDYX3V5XNATO7X257DPHWRPFXSCCNEUZ7QTXIIUI` | **7 seed markets live** | All contracts upgradeable
+>
+> **Native XLM SAC:** `CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA` (mainnet)
 
 ---
 ## User Validation
 
-### Testnet Users
+> The table below records our **pre-launch testnet validation** — 30+ real users
+> who tested the full flow (bet, claim, referral) on Stellar Testnet before the
+> mainnet launch. These are historical testnet wallets, kept here as proof of
+> product testing. Live mainnet activity is on the contracts listed above.
+
+### Pre-Launch Testnet Users
 
 | # | Wallet Address | Action | Points |
 |---|----------------|--------|--------|
@@ -73,10 +80,10 @@
 | 30 | `GASJLRNNMPYN3AIA6MFB6ETRDI5H5C36QRRXLFK62XZUJWGVK4YWNF6R` | Referral registration | 5 |
 | 31 | `GBQI3WD2YKYUWB4MXOO3QP7DPENLV3WD32EHA43VV3US2DCBOWEPV7GW` | Referral registration | 5 |
 
-## Screenshot of Leaderboard with 30+ Testnet Users
-![Leaberboard of 30+ Users](image_of_30+_testnet_user.png)
+## Screenshot of Leaderboard with 30+ Pre-Launch Testnet Users
+![Leaderboard of 30+ Users](image_of_30+_testnet_user.png)
 
-*Wallets verifiable on [Stellar Expert Testnet Explorer](https://stellar.expert/explorer/testnet)*
+*Pre-launch testnet wallets verifiable on [Stellar Expert Testnet Explorer](https://stellar.expert/explorer/testnet). Live mainnet contracts are linked in the Deployed Contracts section above.*
 
 ### User Feedback
 - **Form Link that I shared with users:** [https://forms.gle/WrTyoCzQ6LJegL8a9](https://forms.gle/WrTyoCzQ6LJegL8a9)
@@ -182,7 +189,7 @@ $$\text{Payout} = \frac{\text{UserBet}}{\text{WinningSidePool}} \times \text{Tot
 | **Testing** | Vitest + Testing Library | 2.1.9 |
 | **Contract Testing** | `#[test]` + soroban-sdk testutils | — |
 | **CI/CD** | GitHub Actions | Node 18/20 + Rust |
-| **Deployment** | Vercel (frontend) + Stellar Testnet | — |
+| **Deployment** | Vercel (frontend) + Stellar Mainnet | — |
 
 ---
 
@@ -234,7 +241,7 @@ ipredict-stellar/
 - **Rust** ≥ 1.85.0 with `wasm32-unknown-unknown` target
 - **Node.js** ≥ 18
 - **Stellar CLI** (`stellar-cli` or `soroban-cli`)
-- **Freighter Wallet** browser extension (for testnet interaction)
+- **Freighter Wallet** browser extension (for mainnet interaction)
 
 ### Setup
 
@@ -259,7 +266,7 @@ npm run build
 npm run dev  # http://localhost:3000
 ```
 
-### Deploy Contracts (Testnet)
+### Deploy Contracts (Testnet for dev, Mainnet for production)
 
 See [docs/DEPLOYMENT-GUIDE.md](docs/DEPLOYMENT-GUIDE.md) for the full step-by-step deployment guide with correct dependency order.
 
