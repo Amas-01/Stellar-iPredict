@@ -161,17 +161,8 @@ export async function buildAndSendTx(
     // 2. Build the contract call operation
     const contract = new Contract(contractId);
     const operation = contract.call(method, ...args);
-
-    // 3. Build with a generous INCLUSION fee BEFORE preparing.
-    //    Soroban fees = inclusion fee (set here) + resource fee (added by
-    //    prepareTransaction). prepareTransaction does NOT lower the inclusion
-    //    fee we provide — it only adds the resource fee on top. Setting a
-    //    healthy inclusion fee here gives headroom so a brief network fee spike
-    //    between simulate and submit doesn't cause `txInsufficientFee` (-9).
-    //    1_000_000 stroops (0.1 XLM) inclusion is ample on Soroban where the
-    //    real cost is dominated by the resource fee; the user still only pays
-    //    actual usage, this is just the max cap.
-    const INCLUSION_FEE = "1000000"; // 0.1 XLM inclusion cap (headroom, not actual cost)
+    
+    const INCLUSION_FEE = "50000"; // 0.005 XLM inclusion buffer
     const tx = new TransactionBuilder(sourceAccount, {
       fee: INCLUSION_FEE,
       networkPassphrase: getNetworkPassphrase(),
