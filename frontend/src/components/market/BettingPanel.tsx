@@ -203,8 +203,14 @@ export default function BettingPanel({
       {amount > 0 && (
         <div className="space-y-2 px-4 py-3 rounded-xl bg-surface/60 border border-surface-border">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-500">Fee ({TOTAL_FEE_BPS / 100}%)</span>
+            <span className="text-slate-500">
+              Platform fee ({TOTAL_FEE_BPS / 100}%)
+            </span>
             <span className="text-slate-400">{feeAmount.toFixed(2)} XLM</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-500">You bet (net)</span>
+            <span className="text-slate-300 font-medium">{netAmount.toFixed(2)} XLM</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-slate-500">If you win</span>
@@ -213,6 +219,10 @@ export default function BettingPanel({
             </span>
           </div>
           <div className="border-t border-surface-border my-1" />
+          <div className="flex items-center justify-between text-xs text-slate-600">
+            <span>Network gas fee</span>
+            <span>~0.01–0.05 XLM (paid to Stellar)</span>
+          </div>
           <div className="text-xs text-slate-500">
             Win: {WIN_POINTS} pts + {WIN_TOKENS} IPRED &nbsp;|&nbsp; Lose: {LOSE_POINTS} pts + {LOSE_TOKENS} IPRED
           </div>

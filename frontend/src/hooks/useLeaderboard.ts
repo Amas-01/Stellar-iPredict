@@ -4,7 +4,11 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getTopPlayers, getStats } from "@/services/leaderboard";
 import { getMarkets, getMarketBettors } from "@/services/market";
 import { getDisplayName } from "@/services/referral";
+import * as cache from "@/services/cache";
 import type { PlayerStats } from "@/types";
+
+/** Cache key for the assembled leaderboard (used for instant stale-seed). */
+const LB_CACHE_KEY = "lb_assembled";
 
 export type LeaderboardTab = "top_predictors" | "most_active" | "top_referrers";
 
@@ -85,15 +89,18 @@ async function buildFromMarketBettors(): Promise<PlayerStats[]> {
 export function useLeaderboard(
   tab?: LeaderboardTab
 ): UseLeaderboardResult {
-  const [allPlayers, setAllPlayers] = useState<PlayerStats[]>([]);
+  // Seed from stale cache so the leaderboard renders instantly on return,
+  // then refresh in the background.
+  const seeded = useRef(cache.getStale<PlayerStats[]>(LB_CACHE_KEY));
+  const [allPlayers, setAllPlayers] = useState<PlayerStats[]>(seeded.current ?? []);
   const [data, setData] = useState<PlayerStats[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!seeded.current);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
   const initialLoadDone = useRef(false);
 
   const fetchData = useCallback(async (silent = false) => {
-    // Only show loading spinner on first load, not during polling
+    // Only show loading spinner on first load with no seed, not during polling
     if (!silent) setLoading(true);
     setError(null);
     try {
@@ -106,6 +113,8 @@ export function useLeaderboard(
       }
 
       if (!mountedRef.current) return;
+      // Persist assembled leaderboard for instant stale-seed next time
+      cache.set(LB_CACHE_KEY, players, 60_000);
       setAllPlayers(players);
     } catch (err) {
       if (!mountedRef.current) return;
@@ -120,14 +129,14 @@ export function useLeaderboard(
     }
   }, []);
 
-  // Initial fetch
+  // Initial fetch — silent (background) if we already seeded from cache
   useEffect(() => {
     mountedRef.current = true;
-    fetchData();
+    fetchData(seeded.current !== null && seeded.current.length > 0);
     return () => {
       mountedRef.current = false;
     };
-  }, [fetchData]);
+  }, [fetchData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-poll every 30 seconds (silent — no skeleton flash)
   useEffect(() => {

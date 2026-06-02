@@ -21,7 +21,8 @@ export default function LiveStats() {
     0
   );
   const totalPredictors = players.length;
-  const totalMinted = tokenData?.info?.totalSupply ?? 0;
+  // totalSupply is in raw token units (7 decimals) — convert to human-readable
+  const totalMinted = (tokenData?.info?.totalSupply ?? 0) / 1e7;
 
   // After first successful data, never show skeleton again
   const hasData = totalMarkets > 0 || totalPredictors > 0 || totalMinted > 0;
@@ -43,7 +44,7 @@ export default function LiveStats() {
     { label: "Total Markets", value: totalMarkets.toString() },
     { label: "Total Volume", value: `${totalVolume.toFixed(2)} XLM` },
     { label: "Total Predictors", value: totalPredictors.toString() },
-    { label: "IPREDICT Minted", value: totalMinted.toLocaleString() },
+    { label: "IPREDICT Minted", value: `${totalMinted.toLocaleString(undefined, { maximumFractionDigits: 0 })} IPRED` },
   ];
 
   return (

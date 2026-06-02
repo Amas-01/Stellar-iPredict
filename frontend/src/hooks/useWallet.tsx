@@ -11,6 +11,7 @@ import React, {
 import type { WalletType } from "@/wallet/types";
 import { AppErrorType } from "@/types";
 import type { AppError } from "@/types";
+import { setSimulationSource } from "@/services/soroban";
 
 // ── localStorage keys ─────────────────────────────────────────────────────────
 
@@ -75,6 +76,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           const { publicKey: pk } = await kit.connectKit();
           setPublicKey(pk);
           setWalletType(savedType);
+          setSimulationSource(pk);
         } catch {
           // Silent fail — clear stale stored state
           localStorage.removeItem(WALLET_TYPE_KEY);
@@ -98,6 +100,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
         setPublicKey(pk);
         setWalletType(type);
+        setSimulationSource(pk);
 
         // Persist for auto-reconnect
         localStorage.setItem(WALLET_TYPE_KEY, type);
@@ -127,6 +130,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setPublicKey(null);
     setWalletType(null);
     setError(null);
+    setSimulationSource(null);
     localStorage.removeItem(WALLET_TYPE_KEY);
     localStorage.removeItem(WALLET_PUBKEY_KEY);
   }, []);

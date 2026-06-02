@@ -39,6 +39,17 @@ function applyFilter(markets: Market[], filter: MarketFilter): Market[] {
       return markets.filter((m) => m.resolved);
     case "cancelled":
       return markets.filter((m) => m.cancelled);
+    // Category filters
+    case "crypto":
+      return markets.filter((m) => m.category === "Crypto");
+    case "sports":
+      return markets.filter((m) => m.category === "Sports");
+    case "politics":
+      return markets.filter((m) => m.category === "Politics");
+    case "entertainment":
+      return markets.filter((m) => m.category === "Entertainment");
+    case "science":
+      return markets.filter((m) => m.category === "Science");
     case "all":
     default:
       return markets;
@@ -68,8 +79,9 @@ export function useMarkets(
   filter?: MarketFilter,
   sort?: MarketSort
 ): UseMarketsResult {
-  // Seed state from cache so returning to /markets shows data instantly
-  const cachedMarkets = useRef(cache.get<Market[]>("markets"));
+  // Seed from STALE cache so returning to /markets shows data instantly,
+  // then refresh in the background (stale-while-revalidate).
+  const cachedMarkets = useRef(cache.getStale<Market[]>("markets"));
   const [allMarkets, setAllMarkets] = useState<Market[]>(cachedMarkets.current ?? []);
   const [data, setData] = useState<Market[]>([]);
   const [loading, setLoading] = useState(!cachedMarkets.current);
@@ -95,10 +107,11 @@ export function useMarkets(
     }
   }, []);
 
-  // Fetch on mount — silent if we already have cached data
+  // Fetch on mount — silent (background refresh) if we already have stale data,
+  // so returning to the page never flashes a skeleton.
   useEffect(() => {
     mountedRef.current = true;
-    fetchMarkets(allMarkets.length > 0);
+    fetchMarkets(cachedMarkets.current !== null && cachedMarkets.current.length > 0);
     return () => {
       mountedRef.current = false;
     };

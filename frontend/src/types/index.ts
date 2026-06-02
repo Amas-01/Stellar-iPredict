@@ -1,9 +1,27 @@
 // ── Market ────────────────────────────────────────────────────────────────────
 
+export type MarketCategory =
+  | "Crypto"
+  | "Sports"
+  | "Politics"
+  | "Entertainment"
+  | "Science"
+  | "Other";
+
+export const MARKET_CATEGORIES: MarketCategory[] = [
+  "Crypto",
+  "Sports",
+  "Politics",
+  "Entertainment",
+  "Science",
+  "Other",
+];
+
 export interface Market {
   id: number;
   question: string;
   imageUrl: string;
+  category: MarketCategory;
   endTime: number;
   totalYes: number;
   totalNo: number;
@@ -61,7 +79,12 @@ export type MarketFilter =
   | "ending_soon"
   | "ended"
   | "resolved"
-  | "cancelled";
+  | "cancelled"
+  | "crypto"
+  | "sports"
+  | "politics"
+  | "entertainment"
+  | "science";
 
 export type MarketSort = "newest" | "volume" | "ending_soon" | "bettors";
 

@@ -4,7 +4,9 @@ import React, { useState, useCallback } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { useToast } from "@/hooks/useToast";
 import { createMarket } from "@/services/market";
-import { FiPlusCircle, FiImage, FiClock, FiHelpCircle } from "react-icons/fi";
+import { MARKET_CATEGORIES } from "@/types";
+import type { MarketCategory } from "@/types";
+import { FiPlusCircle, FiImage, FiClock, FiHelpCircle, FiTag } from "react-icons/fi";
 import Spinner from "@/components/ui/Spinner";
 import TxProgress from "@/components/ui/TxProgress";
 import type { TxStage } from "@/hooks/useClaim";
@@ -23,6 +25,7 @@ export default function CreateMarketForm() {
   const { showToast } = useToast();
   const [question, setQuestion] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [category, setCategory] = useState<MarketCategory>("Crypto");
   const [durationSecs, setDurationSecs] = useState(86400);
   const [customDuration, setCustomDuration] = useState("");
   const [useCustom, setUseCustom] = useState(false);
@@ -51,6 +54,7 @@ export default function CreateMarketForm() {
         publicKey,
         question.trim(),
         imageUrl.trim() || "",
+        category,
         effectiveDuration,
         signTransaction
       );
@@ -72,7 +76,7 @@ export default function CreateMarketForm() {
       setStage("failed");
       setError(err instanceof Error ? err.message : "Unknown error");
     }
-  }, [publicKey, question, imageUrl, effectiveDuration, signTransaction]);
+  }, [publicKey, question, imageUrl, category, effectiveDuration, signTransaction]);
 
   const isSubmitting = stage !== "idle" && stage !== "confirmed" && stage !== "failed";
 
@@ -103,6 +107,29 @@ export default function CreateMarketForm() {
           </span>
         </div>
 
+        {/* Category */}
+        <div>
+          <label className="flex items-center gap-2 text-sm text-slate-400 mb-1.5">
+            <FiTag className="w-3.5 h-3.5" />
+            Category
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {MARKET_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  category === cat
+                    ? "bg-primary-600 text-white"
+                    : "bg-surface-hover text-slate-400 hover:text-white border border-surface-border"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Image URL */}
         <div>
           <label className="flex items-center gap-2 text-sm text-slate-400 mb-1.5">
@@ -125,7 +152,6 @@ export default function CreateMarketForm() {
             Duration
           </label>
 
-          {/* Preset pills */}
           <div className="flex flex-wrap gap-2 mb-3">
             {DURATION_PRESETS.map((preset) => (
               <button
@@ -170,30 +196,18 @@ export default function CreateMarketForm() {
           )}
         </div>
 
-        {/* Tx progress */}
         {stage !== "idle" && <TxProgress step={stage} />}
-
-        {/* Error */}
-        {error && (
-          <p className="text-sm text-accent-red">{error}</p>
-        )}
-
-        {/* Success */}
+        {error && <p className="text-sm text-accent-red">{error}</p>}
         {success && stage === "confirmed" && (
           <p className="text-sm text-accent-green">Market created successfully!</p>
         )}
 
-        {/* Submit */}
         <button
           onClick={handleSubmit}
           disabled={isSubmitting || !question.trim() || !publicKey}
           className="btn-primary w-full flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          {isSubmitting ? (
-            <Spinner size="sm" />
-          ) : (
-            <FiPlusCircle className="w-4 h-4" />
-          )}
+          {isSubmitting ? <Spinner size="sm" /> : <FiPlusCircle className="w-4 h-4" />}
           {isSubmitting ? "Creating..." : "Create Market"}
         </button>
       </div>

@@ -60,6 +60,7 @@ const mockMarket: Market = {
   id: 1,
   question: "Will BTC hit 100k?",
   imageUrl: "",
+  category: "Crypto",
   endTime: Math.floor(Date.now() / 1000) + 86400,
   totalYes: 500,
   totalNo: 300,
@@ -174,7 +175,8 @@ describe("BettingPanel", () => {
     const input = screen.getByPlaceholderText("0.00");
     fireEvent.change(input, { target: { value: "10" } });
     expect(screen.getByText(/If you win/)).toBeInTheDocument();
-    expect(screen.getByText(/Fee/)).toBeInTheDocument();
+    expect(screen.getByText(/Platform fee/)).toBeInTheDocument();
+    expect(screen.getByText(/Network gas fee/)).toBeInTheDocument();
   });
 
   it("quick amount button sets input value", () => {

@@ -4,13 +4,21 @@ import React, { useState, useEffect, useRef } from "react";
 import { FiSearch, FiChevronDown } from "react-icons/fi";
 import type { MarketFilter, MarketSort } from "@/types";
 
-const FILTERS: { value: MarketFilter; label: string }[] = [
+const STATUS_FILTERS: { value: MarketFilter; label: string }[] = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "ending_soon", label: "Ending Soon" },
   { value: "ended", label: "Ended" },
   { value: "resolved", label: "Resolved" },
   { value: "cancelled", label: "Cancelled" },
+];
+
+const CATEGORY_FILTERS: { value: MarketFilter; label: string }[] = [
+  { value: "crypto", label: "Crypto" },
+  { value: "sports", label: "Sports" },
+  { value: "politics", label: "Politics" },
+  { value: "entertainment", label: "Entertainment" },
+  { value: "science", label: "Science" },
 ];
 
 const SORTS: { value: MarketSort; label: string }[] = [
@@ -42,7 +50,6 @@ export default function MarketFilters({
   const sortRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounce search input
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -53,7 +60,6 @@ export default function MarketFilters({
     };
   }, [localSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Close sort dropdown on outside click
   useEffect(() => {
     const handle = (e: MouseEvent) => {
       if (sortRef.current && !sortRef.current.contains(e.target as Node)) {
@@ -67,10 +73,10 @@ export default function MarketFilters({
   const activeSortLabel = SORTS.find((s) => s.value === activeSort)?.label ?? "Sort";
 
   return (
-    <div className="space-y-4">
-      {/* Filter pills row */}
+    <div className="space-y-3">
+      {/* Status filter pills */}
       <div className="flex flex-wrap items-center gap-2">
-        {FILTERS.map((f) => (
+        {STATUS_FILTERS.map((f) => (
           <button
             key={f.value}
             onClick={() => onFilterChange(f.value)}
@@ -85,9 +91,26 @@ export default function MarketFilters({
         ))}
       </div>
 
+      {/* Category filter pills */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-slate-600 font-medium mr-1">Category:</span>
+        {CATEGORY_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => onFilterChange(activeFilter === f.value ? "all" : f.value)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+              activeFilter === f.value
+                ? "bg-primary-600/80 text-white border border-primary-600/50"
+                : "bg-surface-card border border-surface-border text-slate-500 hover:text-white hover:border-primary-600/30"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
       {/* Search + Sort row */}
       <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search input */}
         <div className="relative flex-1">
           <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input
@@ -99,7 +122,6 @@ export default function MarketFilters({
           />
         </div>
 
-        {/* Sort dropdown */}
         <div ref={sortRef} className="relative">
           <button
             onClick={() => setSortOpen((p) => !p)}

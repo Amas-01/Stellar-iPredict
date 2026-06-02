@@ -9,9 +9,35 @@ import {
   xdr,
   scValToNative,
 } from "@stellar/stellar-sdk";
-import { NETWORK, SPONSOR_SECRET_KEY } from "@/config/network";
+import { NETWORK, ADMIN_PUBLIC_KEY, SPONSOR_SECRET_KEY } from "@/config/network";
 import { AppErrorType } from "@/types";
 import type { AppError, TransactionResult } from "@/types";
+import * as cache from "@/services/cache";
+
+const XLM_BALANCE_TTL = 15_000;
+
+// ── Simulation source account ─────────────────────────────────────────────────
+// Read-only simulations need any funded Stellar account as the tx source —
+// it is NOT used for signing, only for sequence-number lookup. This lets the
+// markets/leaderboard load BEFORE the user connects a wallet.
+//
+// Priority: connected wallet > admin key (the deployer, always funded & exists).
+// We deliberately do NOT keep a third hardcoded fallback — the admin/deployer
+// account always exists on the network the contracts were deployed to, so it
+// is the most reliable anonymous source. A wrong fallback (e.g. an account that
+// does not exist on this network) causes "Account not found" and makes the app
+// appear to require a wallet before showing data.
+let _connectedWallet: string | null = null;
+
+/** Call this when the user connects their wallet so simulations use their account. */
+export function setSimulationSource(publicKey: string | null): void {
+  _connectedWallet = publicKey;
+}
+
+/** Returns the best available source account for read-only simulations. */
+export function getSimulationSource(): string {
+  return _connectedWallet || ADMIN_PUBLIC_KEY;
+}
 
 // ── Server singletons ─────────────────────────────────────────────────────────
 
@@ -45,13 +71,21 @@ export function getHorizonServer(): Horizon.Server {
  * Returns balance in XLM (human-readable units, e.g. 100.5).
  */
 export async function getXlmBalance(publicKey: string): Promise<number> {
+  const cacheKey = `xlm_balance_${publicKey}`;
+  const cached = cache.get<number>(cacheKey);
+  if (cached !== null && cached !== undefined) return cached;
+
   try {
     const server = getHorizonServer();
     const account = await server.loadAccount(publicKey);
     const nativeBalance = account.balances.find(
       (b: { asset_type: string }) => b.asset_type === "native"
     );
-    return nativeBalance ? parseFloat((nativeBalance as { balance: string }).balance) : 0;
+    const balance = nativeBalance
+      ? parseFloat((nativeBalance as { balance: string }).balance)
+      : 0;
+    cache.set(cacheKey, balance, XLM_BALANCE_TTL);
+    return balance;
   } catch {
     return 0;
   }
@@ -68,7 +102,7 @@ function getNetworkPassphrase(): string {
 // ── Transaction polling ───────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 2000;
-const MAX_POLL_ATTEMPTS = 30; // 60 seconds total
+const MAX_POLL_ATTEMPTS = 45; // 90 seconds total
 
 /**
  * Poll the Soroban RPC getTransaction endpoint until the tx is confirmed
@@ -128,18 +162,19 @@ export async function buildAndSendTx(
     const contract = new Contract(contractId);
     const operation = contract.call(method, ...args);
 
-    // 3. Build the transaction
-    // When fee sponsorship is active, set a minimal fee for the inner tx —
-    // the sponsor's fee bump transaction will cover the actual cost.
+    // 3. Build with a minimal placeholder fee — prepareTransaction will replace
+    //    this with the exact simulated resource fee. Using a placeholder avoids
+    //    the old bug where "10000000" stroops (1 XLM) showed in Freighter as the fee.
     const tx = new TransactionBuilder(sourceAccount, {
-      fee: SPONSOR_SECRET_KEY ? "100" : "10000000",
+      fee: "100", // placeholder — overwritten by prepareTransaction
       networkPassphrase: getNetworkPassphrase(),
     })
       .addOperation(operation)
-      .setTimeout(300) // 5 minutes for wallet review
+      .setTimeout(300)
       .build();
 
-    // 4. Simulate to get resource estimates and auth
+    // 4. Simulate + prepare — this sets the exact resource fee based on actual
+    //    instruction count. The fee in the prepared tx is what Freighter shows.
     let prepared;
     try {
       prepared = await server.prepareTransaction(tx);
@@ -152,7 +187,12 @@ export async function buildAndSendTx(
       };
     }
 
-    // 5. Sign the prepared transaction
+    // 5. prepareTransaction already sets the exact simulated resource fee on the tx.
+    //    We read it here so we can set the fee bump cap proportionally.
+    const preparedFee = parseInt(prepared.fee, 10);
+
+    // 6. Sign the prepared transaction — Freighter will now show the real fee,
+    //    not a hardcoded worst-case number.
     const txXdr = prepared.toXDR();
     let signedXdr: string;
     try {
@@ -166,31 +206,36 @@ export async function buildAndSendTx(
       };
     }
 
-    // 6. Reconstruct signed transaction and submit (with fee bump if sponsor is configured)
+    // 7. Reconstruct and submit (with fee bump if sponsor is configured)
     const parsedTx = TransactionBuilder.fromXDR(
       signedXdr,
       getNetworkPassphrase()
     );
 
-    // sendTransaction accepts both Transaction and FeeBumpTransaction
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let txToSubmit: any = parsedTx;
 
-    // Fee Sponsorship: wrap in a FeeBumpTransaction so the sponsor pays gas
+    // Fee Sponsorship: wrap in FeeBumpTransaction — sponsor pays the resource fee,
+    // user pays nothing. The fee bump cap is set to 2× the simulated fee so the
+    // sponsor never overpays and the cap shown in explorers is realistic.
     if (SPONSOR_SECRET_KEY && parsedTx instanceof Transaction) {
       try {
         const sponsorKeypair = Keypair.fromSecret(SPONSOR_SECRET_KEY);
+        // Bump cap = 2× simulated fee (never more than 0.5 XLM on testnet)
+        const bumpCap = Math.min(
+          Math.ceil(preparedFee * 2),
+          5_000_000 // hard ceiling: 0.5 XLM — prevents runaway fees
+        ).toString();
         const feeBumpTx = TransactionBuilder.buildFeeBumpTransaction(
           sponsorKeypair,
-          "15000000", // max fee sponsor will pay (1.5 XLM — covers Soroban resource fees)
+          bumpCap,
           parsedTx,
           getNetworkPassphrase()
         );
         feeBumpTx.sign(sponsorKeypair);
         txToSubmit = feeBumpTx;
-        console.log("[iPredict] Fee bump applied — sponsor pays gas");
+        console.log(`[iPredict] Fee bump applied — sponsor pays up to ${parseInt(bumpCap)/1e7} XLM`);
       } catch (bumpErr) {
-        // If fee bump fails, fall back to user-paid transaction
         console.warn("[iPredict] Fee bump failed, falling back to user-paid:", bumpErr);
       }
     }
@@ -249,6 +294,25 @@ export async function buildAndSendTx(
  * @param args — Array of xdr.ScVal arguments
  * @returns Parsed native JS value from the contract return
  */
+// ── Source-account cache for read-only simulations ───────────────────────────
+// Read-only simulations don't care about the sequence number — the host ignores
+// it. So we fetch the source account ONCE and reuse it for ~60s across every
+// simulation, eliminating a full network round-trip (getAccount) per read.
+// This is the single biggest win for 100s of concurrent users hitting the
+// markets/leaderboard pages: each read drops from 2 round-trips to 1.
+let _simAccount: { account: Awaited<ReturnType<rpc.Server["getAccount"]>>; key: string; expiry: number } | null = null;
+const SIM_ACCOUNT_TTL = 60_000;
+
+async function getSimAccount(publicKey: string) {
+  const now = Date.now();
+  if (_simAccount && _simAccount.key === publicKey && now < _simAccount.expiry) {
+    return _simAccount.account;
+  }
+  const account = await getSorobanServer().getAccount(publicKey);
+  _simAccount = { account, key: publicKey, expiry: now + SIM_ACCOUNT_TTL };
+  return account;
+}
+
 export async function simulateTransaction<T = unknown>(
   publicKey: string,
   contractId: string,
@@ -258,7 +322,7 @@ export async function simulateTransaction<T = unknown>(
   const server = getSorobanServer();
 
   try {
-    const sourceAccount = await server.getAccount(publicKey);
+    const sourceAccount = await getSimAccount(publicKey);
     const contract = new Contract(contractId);
     const operation = contract.call(method, ...args);
 

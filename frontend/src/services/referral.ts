@@ -3,8 +3,8 @@ import {
   nativeToScVal,
   xdr,
 } from "@stellar/stellar-sdk";
-import { REFERRAL_CONTRACT_ID, ADMIN_PUBLIC_KEY } from "@/config/network";
-import { buildAndSendTx, simulateTransaction } from "@/services/soroban";
+import { REFERRAL_CONTRACT_ID } from "@/config/network";
+import { buildAndSendTx, simulateTransaction, getSimulationSource } from "@/services/soroban";
 import * as cache from "@/services/cache";
 import type { TransactionResult } from "@/types";
 
@@ -17,12 +17,11 @@ const CACHE_EARNINGS = (addr: string) => `ref_earnings_${addr}`;
 const CACHE_HAS_REF = (addr: string) => `ref_has_${addr}`;
 const CACHE_REGISTERED = (addr: string) => `ref_reg_${addr}`;
 
-const REF_TTL = 60_000; // 60s — referral data changes infrequently
+const REF_TTL = 60_000; // 60s — referral data (counts, earnings) changes infrequently
+const NAME_TTL = 30 * 60_000; // 30 min — display names almost never change after registration
 
 /** Simulation source */
-function simSource(): string {
-  return ADMIN_PUBLIC_KEY;
-}
+
 
 function addressVal(addr: string): xdr.ScVal {
   return new Address(addr).toScVal();
@@ -30,6 +29,39 @@ function addressVal(addr: string): xdr.ScVal {
 
 function stringVal(s: string): xdr.ScVal {
   return nativeToScVal(s, { type: "string" });
+}
+
+// ── Display name decoder ─────────────────────────────────────────────────────
+
+/**
+ * Soroban String values can arrive as hex-encoded bytes when the SDK cannot
+ * decode them as UTF-8. This function normalises them back to human-readable.
+ * - If the value is already valid UTF-8 text → return as-is.
+ * - If it looks like a hex string (all hex chars, even length) → decode it.
+ * - If it's just bytes → ignore and return empty.
+ */
+function decodeDisplayName(raw: unknown): string {
+  if (!raw) return "";
+  if (typeof raw !== "string") return String(raw);
+
+  // If it already looks like a normal name (printable, non-hex), return it
+  if (/[^0-9a-f]/i.test(raw)) return raw;
+
+  // Looks hex-only — try decoding
+  if (raw.length % 2 === 0 && /^[0-9a-fA-F]+$/.test(raw)) {
+    try {
+      let decoded = "";
+      for (let i = 0; i < raw.length; i += 2) {
+        decoded += String.fromCharCode(parseInt(raw.slice(i, i + 2), 16));
+      }
+      // Only return if result is printable ASCII / common UTF-8
+      if (/^[\x20-\x7EÀ-ɏ]+$/.test(decoded)) return decoded;
+    } catch {
+      // fall through
+    }
+  }
+
+  return raw;
 }
 
 // ── Write functions ───────────────────────────────────────────────────────────
@@ -87,7 +119,7 @@ export async function getReferrer(
 
   try {
     const raw = await simulateTransaction<string>(
-      simSource(),
+      getSimulationSource(),
       REFERRAL_CONTRACT_ID,
       "get_referrer",
       [addressVal(userAddress)]
@@ -110,13 +142,13 @@ export async function getDisplayName(
 
   try {
     const raw = await simulateTransaction<string>(
-      simSource(),
+      getSimulationSource(),
       REFERRAL_CONTRACT_ID,
       "get_display_name",
       [addressVal(userAddress)]
     );
-    const name = raw || "";
-    cache.set(cacheKey, name, REF_TTL);
+    const name = decodeDisplayName(raw);
+    cache.set(cacheKey, name, NAME_TTL); // long TTL — names rarely change
     return name;
   } catch {
     return "";
@@ -133,7 +165,7 @@ export async function getReferralCount(
 
   try {
     const raw = await simulateTransaction<number | bigint>(
-      simSource(),
+      getSimulationSource(),
       REFERRAL_CONTRACT_ID,
       "get_referral_count",
       [addressVal(userAddress)]
@@ -154,7 +186,7 @@ export async function getEarnings(userAddress: string): Promise<number> {
 
   try {
     const raw = await simulateTransaction<number | bigint>(
-      simSource(),
+      getSimulationSource(),
       REFERRAL_CONTRACT_ID,
       "get_earnings",
       [addressVal(userAddress)]
@@ -175,7 +207,7 @@ export async function hasReferrer(userAddress: string): Promise<boolean> {
 
   try {
     const raw = await simulateTransaction<boolean>(
-      simSource(),
+      getSimulationSource(),
       REFERRAL_CONTRACT_ID,
       "has_referrer",
       [addressVal(userAddress)]
@@ -195,7 +227,7 @@ export async function isRegistered(userAddress: string): Promise<boolean> {
 
   try {
     const raw = await simulateTransaction<boolean>(
-      simSource(),
+      getSimulationSource(),
       REFERRAL_CONTRACT_ID,
       "is_registered",
       [addressVal(userAddress)]

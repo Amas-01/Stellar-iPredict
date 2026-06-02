@@ -1,13 +1,13 @@
 import { Address, nativeToScVal, xdr } from "@stellar/stellar-sdk";
-import { LEADERBOARD_CONTRACT_ID, ADMIN_PUBLIC_KEY } from "@/config/network";
-import { simulateTransaction } from "@/services/soroban";
+import { LEADERBOARD_CONTRACT_ID } from "@/config/network";
+import { simulateTransaction, getSimulationSource } from "@/services/soroban";
 import { getDisplayName } from "@/services/referral";
 import * as cache from "@/services/cache";
 import type { PlayerStats } from "@/types";
 
 // ── Cache keys & TTLs ────────────────────────────────────────────────────────
 
-const CACHE_TOP_PLAYERS = (limit: number) => `lb_top_${limit}`;
+const CACHE_TOP_PLAYERS = (offset: number, limit: number) => `lb_top_${offset}_${limit}`;
 const CACHE_STATS = (addr: string) => `lb_stats_${addr}`;
 const CACHE_POINTS = (addr: string) => `lb_pts_${addr}`;
 const CACHE_RANK = (addr: string) => `lb_rank_${addr}`;
@@ -15,10 +15,11 @@ const CACHE_RANK = (addr: string) => `lb_rank_${addr}`;
 const LEADERBOARD_TTL = 60_000; // 60s
 const STATS_TTL = 30_000; // 30s
 
+/** Max players per page (must match contract MAX_PAGE_SIZE = 20) */
+const PAGE_SIZE = 20;
+
 /** Simulation source */
-function simSource(): string {
-  return ADMIN_PUBLIC_KEY;
-}
+
 
 function addressVal(addr: string): xdr.ScVal {
   return new Address(addr).toScVal();
@@ -69,23 +70,29 @@ async function batchAll<T>(
 // ── Read functions ────────────────────────────────────────────────────────────
 
 /**
- * Get top N players from the leaderboard.
- * The contract returns Vec<PlayerEntry> where PlayerEntry is a struct
- * { address: Address, points: u64 }.  scValToNative deserialises this
- * as an array of plain JS objects.
+ * Get a page of top players from the leaderboard.
+ * Contract is paginated: get_top_players(offset, limit) where limit is capped at 20.
+ * Pass offset=0 for the first page, offset=20 for the second, etc.
+ *
+ * For the leaderboard UI, use offset=0 and limit=20 to get the first page,
+ * or call getTopPlayersAll() to fetch all pages sequentially.
  */
-export async function getTopPlayers(limit: number): Promise<PlayerStats[]> {
-  const cacheKey = CACHE_TOP_PLAYERS(limit);
+export async function getTopPlayers(
+  limit: number = PAGE_SIZE,
+  offset: number = 0
+): Promise<PlayerStats[]> {
+  const pageLimit = Math.min(limit, PAGE_SIZE);
+  const cacheKey = CACHE_TOP_PLAYERS(offset, pageLimit);
   const cached = cache.get<PlayerStats[]>(cacheKey);
   if (cached) return cached;
 
   try {
     // Contract returns Vec<PlayerEntry> — each entry is { address, points }
     const raw = await simulateTransaction<RawPlayerEntry[]>(
-      simSource(),
+      getSimulationSource(),
       LEADERBOARD_CONTRACT_ID,
       "get_top_players",
-      [u32Val(limit)]
+      [u32Val(offset), u32Val(pageLimit)]
     );
 
     if (!raw || !Array.isArray(raw) || raw.length === 0) return [];
@@ -104,55 +111,37 @@ export async function getTopPlayers(limit: number): Promise<PlayerStats[]> {
       };
     });
 
-    // Batch-resolve display names with concurrency limit of 5
-    const nameMap = new Map<string, string>();
-    const nameTasks = entries.map(({ addr }) => async () => {
-      try {
-        const name = await getDisplayName(addr);
-        nameMap.set(addr, name || "");
-      } catch {
-        nameMap.set(addr, "");
-      }
-    });
-    await batchAll(nameTasks, 5);
-
-    // Batch-fetch full stats for each player with concurrency limit of 5
-    const statsTasks = entries.map(({ addr, pts }) => async () => {
-      try {
-        const statsRaw = await simulateTransaction<RawContractStats>(
-          simSource(),
+    // OPT: single parallel pass — fetch stats AND display name for each player
+    // concurrently (was two sequential batch passes = 2x round-trips).
+    // Concurrency raised to 10. Display names are cached long (rarely change),
+    // so repeat loads resolve them from cache with zero RPC calls.
+    const tasks = entries.map(({ addr, pts }) => async () => {
+      const [statsRaw, name] = await Promise.all([
+        simulateTransaction<RawContractStats>(
+          getSimulationSource(),
           LEADERBOARD_CONTRACT_ID,
           "get_stats",
           [addressVal(addr)]
-        );
+        ).catch(() => null),
+        getDisplayName(addr).catch(() => ""),
+      ]);
 
-        const totalBets = parseContractStats(statsRaw, "total_bets");
-        const wonBets = parseContractStats(statsRaw, "won_bets");
-        const lostBets = parseContractStats(statsRaw, "lost_bets");
+      const totalBets = statsRaw ? parseContractStats(statsRaw, "total_bets") : 0;
+      const wonBets = statsRaw ? parseContractStats(statsRaw, "won_bets") : 0;
+      const lostBets = statsRaw ? parseContractStats(statsRaw, "lost_bets") : 0;
 
-        return {
-          address: addr,
-          displayName: nameMap.get(addr) || "",
-          points: pts,
-          totalBets,
-          wonBets,
-          lostBets,
-          winRate: totalBets > 0 ? (wonBets / totalBets) * 100 : 0,
-        } satisfies PlayerStats;
-      } catch {
-        return {
-          address: addr,
-          displayName: nameMap.get(addr) || "",
-          points: pts,
-          totalBets: 0,
-          wonBets: 0,
-          lostBets: 0,
-          winRate: 0,
-        } satisfies PlayerStats;
-      }
+      return {
+        address: addr,
+        displayName: name || "",
+        points: pts,
+        totalBets,
+        wonBets,
+        lostBets,
+        winRate: totalBets > 0 ? (wonBets / totalBets) * 100 : 0,
+      } satisfies PlayerStats;
     });
 
-    const players = await batchAll(statsTasks, 5);
+    const players = await batchAll(tasks, 10);
 
     cache.set(cacheKey, players, LEADERBOARD_TTL);
     return players;
@@ -185,7 +174,7 @@ export async function getStats(
 
   try {
     const raw = await simulateTransaction<RawContractStats>(
-      simSource(),
+      getSimulationSource(),
       LEADERBOARD_CONTRACT_ID,
       "get_stats",
       [addressVal(userAddress)]
@@ -228,7 +217,7 @@ export async function getPoints(userAddress: string): Promise<number> {
 
   try {
     const raw = await simulateTransaction<number | bigint>(
-      simSource(),
+      getSimulationSource(),
       LEADERBOARD_CONTRACT_ID,
       "get_points",
       [addressVal(userAddress)]
@@ -249,7 +238,7 @@ export async function getRank(userAddress: string): Promise<number> {
 
   try {
     const raw = await simulateTransaction<number | bigint>(
-      simSource(),
+      getSimulationSource(),
       LEADERBOARD_CONTRACT_ID,
       "get_rank",
       [addressVal(userAddress)]

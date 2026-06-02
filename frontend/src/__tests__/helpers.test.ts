@@ -260,19 +260,19 @@ describe("bpsToPercent", () => {
 describe("explorerUrl", () => {
   it("builds transaction URL", () => {
     expect(explorerUrl("tx", "abc123")).toBe(
-      "https://stellar.expert/explorer/testnet/tx/abc123"
+      "https://stellar.expert/explorer/public/tx/abc123"
     );
   });
 
   it("builds account URL", () => {
     expect(explorerUrl("account", "GABC")).toBe(
-      "https://stellar.expert/explorer/testnet/account/GABC"
+      "https://stellar.expert/explorer/public/account/GABC"
     );
   });
 
   it("builds contract URL", () => {
     expect(explorerUrl("contract", "CDEF456")).toBe(
-      "https://stellar.expert/explorer/testnet/contract/CDEF456"
+      "https://stellar.expert/explorer/public/contract/CDEF456"
     );
   });
 });

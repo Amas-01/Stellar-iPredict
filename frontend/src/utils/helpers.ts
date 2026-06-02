@@ -129,12 +129,14 @@ export function bpsToPercent(bps: number): string {
 
 /**
  * Build a Stellar Expert explorer URL.
+ * Defaults to "public" (mainnet). Pass "testnet" for testnet links.
  */
 export function explorerUrl(
   type: "tx" | "account" | "contract",
-  id: string
+  id: string,
+  network: "public" | "testnet" = "public"
 ): string {
-  const base = "https://stellar.expert/explorer/testnet";
+  const base = `https://stellar.expert/explorer/${network}`;
   switch (type) {
     case "tx":
       return `${base}/tx/${id}`;

@@ -25,13 +25,17 @@ export const metadata: Metadata = {
     process.env.NEXT_PUBLIC_APP_URL || "https://ipredict-stellar.vercel.app"
   ),
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/logo.png", type: "image/png" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: "/logo.png",
   },
   openGraph: {
     title: "iPredict — Prediction Market on Stellar",
     description:
       "Predict. Win or Lose — You Always Earn. Decentralized prediction market with near-zero fees.",
-    images: ["/og-image.svg"],
+    images: ["/logo.png"],
     type: "website",
   },
   twitter: {
@@ -39,7 +43,7 @@ export const metadata: Metadata = {
     title: "iPredict — Prediction Market on Stellar",
     description:
       "Predict. Win or Lose — You Always Earn. Decentralized prediction market with near-zero fees.",
-    images: ["/og-image.svg"],
+    images: ["/logo.png"],
   },
 };
 

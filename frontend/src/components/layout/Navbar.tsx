@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { FiMenu } from "react-icons/fi";
 import WalletConnect from "@/components/wallet/WalletConnect";
@@ -41,9 +42,19 @@ export default function Navbar() {
           {/* Logo */}
           <Link
             href="/"
-            className="font-heading font-bold text-xl text-gradient select-none"
+            className="flex items-center gap-2 select-none"
           >
-            iPredict
+            <Image
+              src="/logo.png"
+              alt="iPredict logo"
+              width={32}
+              height={32}
+              priority
+              className="rounded-lg"
+            />
+            <span className="font-heading font-bold text-xl text-gradient">
+              iPredict
+            </span>
           </Link>
 
           {/* Desktop nav links */}

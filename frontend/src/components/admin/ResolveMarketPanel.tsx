@@ -171,7 +171,7 @@ export default function ResolveMarketPanel() {
                         {market.betCount} bet{market.betCount !== 1 ? "s" : ""}
                       </span>
                       <span>
-                        {((market.totalYes + market.totalNo) / 1e7).toFixed(1)} XLM
+                        {(market.totalYes + market.totalNo).toFixed(1)} XLM
                       </span>
                     </div>
                   </div>

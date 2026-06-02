@@ -44,6 +44,7 @@ const mockMarket: Market = {
   id: 42,
   question: "Will BTC reach $100k?",
   imageUrl: "/test.png",
+  category: "Crypto",
   endTime: futureTime,
   totalYes: 500,
   totalNo: 300,

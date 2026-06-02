@@ -6,6 +6,8 @@ const mockSimulateTransaction = vi.fn();
 
 vi.mock("@/services/soroban", () => ({
   simulateTransaction: (...args: unknown[]) => mockSimulateTransaction(...args),
+  getSimulationSource: () => "GADMIN456",
+  setSimulationSource: vi.fn(),
 }));
 
 vi.mock("@/services/cache", () => ({
