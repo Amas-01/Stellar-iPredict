@@ -170,6 +170,30 @@ describe("BettingPanel", () => {
     expect(screen.getByText(/Insufficient balance/)).toBeInTheDocument();
   });
 
+  it("rejects a bet that exceeds the spendable balance (reserve-aware)", () => {
+    // Regression: a wallet with 1.5 XLM has ~0.3 bettable after the ~1.2 reserve
+    // buffer. Betting 1 XLM must be flagged insufficient — this is the exact
+    // case that previously trapped on-chain with Error(Contract, #10).
+    render(<BettingPanel market={mockMarket} userBet={null} balance={1.5} />);
+    const input = screen.getByPlaceholderText("0.00");
+    fireEvent.change(input, { target: { value: "1" } });
+    expect(screen.getByText(/Insufficient balance/)).toBeInTheDocument();
+  });
+
+  it("shows the reserve-aware bettable amount alongside the balance", () => {
+    render(<BettingPanel market={mockMarket} userBet={null} balance={10} />);
+    // 10 total − 1.2 reserve = 8.80 bettable
+    expect(screen.getByText(/8\.80 bettable/)).toBeInTheDocument();
+  });
+
+  it("MAX button respects the reserve (does not set full balance)", () => {
+    render(<BettingPanel market={mockMarket} userBet={null} balance={10} />);
+    fireEvent.click(screen.getByText("MAX"));
+    const input = screen.getByPlaceholderText("0.00") as HTMLInputElement;
+    // floor(10 − 1.2) = 8, never the full 10
+    expect(input.value).toBe("8");
+  });
+
   it("shows payout calculator when amount entered", () => {
     render(<BettingPanel market={mockMarket} userBet={null} balance={100} />);
     const input = screen.getByPlaceholderText("0.00");

@@ -435,6 +435,25 @@ function classifyError(err: unknown): AppError {
   const message = extractErrorMessage(err);
   const lower = message.toLowerCase();
 
+  // Insufficient XLM — the native token SAC traps with Error(Contract, #10)
+  // and "resulting balance is not within the allowed range" when the transfer
+  // would push the account below its locked minimum reserve. Check this FIRST
+  // (before the generic contract/simulation branches) so users get a clear,
+  // actionable message instead of a raw HostError.
+  if (
+    lower.includes("allowed range") ||
+    lower.includes("balance is not within") ||
+    (lower.includes("#10") && lower.includes("transfer")) ||
+    lower.includes("insufficient balance") ||
+    lower.includes("underfunded")
+  ) {
+    return createAppError(
+      AppErrorType.CONTRACT,
+      "Insufficient XLM balance",
+      "Your wallet doesn't have enough free XLM for this bet. Stellar keeps ~1 XLM locked as the account reserve, plus a small network fee. Try a smaller amount or top up your wallet."
+    );
+  }
+
   // Network errors
   if (
     lower.includes("fetch") ||

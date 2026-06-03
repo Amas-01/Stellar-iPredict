@@ -19,6 +19,14 @@ import ShareBetButton from "@/components/social/ShareBetButton";
 
 const QUICK_AMOUNTS = [1, 5, 10, 50, 100];
 
+// Stellar accounts must keep a minimum balance locked (base reserve + per-entry
+// reserve) that can never be spent, plus a little headroom for the network fee
+// on the bet transaction itself. Betting the *entire* wallet balance traps the
+// XLM transfer with "resulting balance is not within the allowed range"
+// (Error(Contract, #10)). We reserve a safe buffer so the spendable amount is
+// always transferable. ~1 XLM base reserve + entry reserves + fee headroom.
+const RESERVE_BUFFER_XLM = 1.2;
+
 interface BettingPanelProps {
   market: Market;
   userBet: Bet | null;
@@ -59,8 +67,12 @@ export default function BettingPanel({
     !market.cancelled &&
     market.endTime > Math.floor(Date.now() / 1000);
 
+  // Spendable = total balance minus the locked Stellar reserve + fee headroom.
+  // Never let it go negative.
+  const spendable = Math.max(0, balance - RESERVE_BUFFER_XLM);
+
   const isMinValid = amount >= 1;
-  const isBalanceValid = amount <= balance;
+  const isBalanceValid = amount <= spendable;
   const canSubmit =
     connected && isActive && isMinValid && isBalanceValid && !loading;
 
@@ -102,7 +114,9 @@ export default function BettingPanel({
   }, [stage, error]);
 
   const handleSetMax = () => {
-    setAmountStr(Math.floor(balance).toString());
+    // Max = spendable balance (keeps the locked reserve + fee headroom intact),
+    // floored to whole XLM. Never negative.
+    setAmountStr(Math.max(0, Math.floor(spendable)).toString());
   };
 
   const hasExistingBet = userBet !== null;
@@ -186,7 +200,7 @@ export default function BettingPanel({
           ))}
           <button
             onClick={handleSetMax}
-            disabled={!isActive || loading || balance <= 0}
+            disabled={!isActive || loading || spendable <= 0}
             className="flex-1 py-1.5 rounded-lg text-xs font-medium bg-primary-600/15 border border-primary-600/30 text-primary-400 hover:bg-primary-600/25 transition-colors disabled:opacity-50"
           >
             MAX
@@ -196,6 +210,9 @@ export default function BettingPanel({
         {/* Wallet balance */}
         <p className="text-xs text-slate-600">
           Balance: {balance.toFixed(2)} XLM
+          <span className="text-slate-700">
+            {" "}· {spendable.toFixed(2)} bettable
+          </span>
         </p>
       </div>
 
@@ -237,9 +254,14 @@ export default function BettingPanel({
         </div>
       )}
       {amountStr && isMinValid && !isBalanceValid && (
-        <div className="flex items-center gap-2 text-xs text-accent-red">
-          <FiAlertCircle className="w-3.5 h-3.5 shrink-0" />
-          Insufficient balance
+        <div className="flex items-start gap-2 text-xs text-accent-red">
+          <FiAlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          <span>
+            Insufficient balance. You can bet up to{" "}
+            <span className="font-medium">{spendable.toFixed(2)} XLM</span> —
+            Stellar keeps ~{RESERVE_BUFFER_XLM} XLM locked as the account reserve
+            and network fee.
+          </span>
         </div>
       )}
 
