@@ -200,7 +200,23 @@ describe("BettingPanel", () => {
     fireEvent.change(input, { target: { value: "10" } });
     expect(screen.getByText(/If you win/)).toBeInTheDocument();
     expect(screen.getByText(/Platform fee/)).toBeInTheDocument();
-    expect(screen.getByText(/Network gas fee/)).toBeInTheDocument();
+    expect(screen.getByText(/Network fee/)).toBeInTheDocument();
+  });
+
+  it("warns about the one-time first-bet storage fee (no existing bet)", () => {
+    render(<BettingPanel market={mockMarket} userBet={null} balance={100} />);
+    fireEvent.change(screen.getByPlaceholderText("0.00"), { target: { value: "10" } });
+    expect(screen.getByText(/first bet on a market includes a one-time/i)).toBeInTheDocument();
+    expect(screen.getByText(/~0.14 XLM first bet/)).toBeInTheDocument();
+  });
+
+  it("shows cheap network fee when increasing an existing position", () => {
+    const existingBet: Bet = { amount: 10, isYes: true, claimed: false };
+    render(<BettingPanel market={mockMarket} userBet={existingBet} balance={100} />);
+    fireEvent.change(screen.getByPlaceholderText("0.00"), { target: { value: "10" } });
+    expect(screen.getByText(/~0.003 XLM/)).toBeInTheDocument();
+    // No first-bet warning when a position already exists.
+    expect(screen.queryByText(/first bet on a market includes a one-time/i)).toBeNull();
   });
 
   it("quick amount button sets input value", () => {

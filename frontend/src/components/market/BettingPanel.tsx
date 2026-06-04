@@ -237,9 +237,16 @@ export default function BettingPanel({
           </div>
           <div className="border-t border-surface-border my-1" />
           <div className="flex items-center justify-between text-xs text-slate-600">
-            <span>Network gas fee</span>
-            <span>~0.01–0.05 XLM (paid to Stellar)</span>
+            <span>Network fee</span>
+            <span>{hasExistingBet ? "~0.003 XLM" : "~0.14 XLM first bet"}</span>
           </div>
+          {!hasExistingBet && (
+            <p className="text-[11px] leading-snug text-slate-600">
+              Your first bet on a market includes a one-time on-chain storage fee
+              (~0.14 XLM, paid to the Stellar network). Every bet after that on
+              this market is near-free (~0.003 XLM).
+            </p>
+          )}
           <div className="text-xs text-slate-500">
             Win: {WIN_POINTS} pts + {WIN_TOKENS} IPRED &nbsp;|&nbsp; Lose: {LOSE_POINTS} pts + {LOSE_TOKENS} IPRED
           </div>
