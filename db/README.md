@@ -33,6 +33,25 @@ Apply with the migration runner (tracked as its own issue) or manually:
 psql "$DATABASE_URL" -f db/migrations/0001_create_markets.sql
 ```
 
+## Local Seed Data
+
+Use the seed script to populate realistic local development records for
+`markets`, `bets`, and `leaderboard` without running the full indexer.
+
+```bash
+cd db
+npm install
+npm run seed
+```
+
+Defaults to `postgresql://ipredict:ipredict@localhost:5432/ipredict` if
+`DATABASE_URL` is not set.
+
+The seed is idempotent:
+- Tables are created with `CREATE TABLE IF NOT EXISTS`
+- Records are inserted with `ON CONFLICT ... DO UPDATE`
+- Safe to run multiple times
+
 ## Contributing
 
 Pick an open issue labelled `area:db`, branch off `implementation-drips`,
