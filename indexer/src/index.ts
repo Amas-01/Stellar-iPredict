@@ -1,5 +1,6 @@
 import { Pool } from "pg";
 import { rebuildLeaderboardTable } from "./leaderboard-rebuild.js";
+import { createLogger, logIterationSummary, parseLogLevel } from "./log.js";
 
 function parseSinceLedger(argv: string[]): number | undefined {
   const exact = argv.find((arg) => arg.startsWith("--since-ledger="));
@@ -25,11 +26,21 @@ async function main(): Promise<void> {
 
   const dryRun = process.argv.includes("--dry-run");
   const sinceLedger = parseSinceLedger(process.argv.slice(2));
+  const logger = createLogger({
+    level: parseLogLevel(process.env.LOG_LEVEL),
+    bindings: { component: "indexer", job: "leaderboard-rebuild" },
+  });
   const pool = new Pool({ connectionString });
   const client = await pool.connect();
+  const startedAt = Date.now();
 
   try {
     await client.query("BEGIN");
+    logger.info("indexer run started", {
+      dryRun,
+      sinceLedger: sinceLedger ?? null,
+      logLevel: logger.level,
+    });
     const snapshot = await rebuildLeaderboardTable(client, {
       dryRun,
       sinceLedger,
@@ -41,20 +52,25 @@ async function main(): Promise<void> {
       await client.query("COMMIT");
     }
 
-    const summary = [
-      `processed ${snapshot.eventCount} event(s)`,
-      `rebuilt ${snapshot.players.length} leaderboard row(s)`,
-      snapshot.lastLedgerSeq === null ? null : `last ledger ${snapshot.lastLedgerSeq}`,
-      sinceLedger === undefined ? null : `checkpoint hint ${sinceLedger}`,
-      dryRun ? "dry-run" : null,
-    ]
-      .filter((part): part is string => part !== null)
-      .join(", ");
-
-    console.log(`[leaderboard-rebuild] ${summary}`);
+    logIterationSummary(logger, {
+      eventsProcessed: snapshot.eventCount,
+      lagLedgers:
+        sinceLedger !== undefined && snapshot.lastLedgerSeq !== null
+          ? Math.max(snapshot.lastLedgerSeq - sinceLedger, 0)
+          : 0,
+      durationMs: Date.now() - startedAt,
+      lastLedgerSeq: snapshot.lastLedgerSeq,
+      checkpointLedger: sinceLedger,
+    });
   } catch (error) {
     await client.query("ROLLBACK").catch(() => undefined);
-    throw error;
+    logger.error("indexer run failed", {
+      dryRun,
+      sinceLedger: sinceLedger ?? null,
+      error,
+    });
+    process.exitCode = 1;
+    return;
   } finally {
     client.release();
     await pool.end();
@@ -62,7 +78,10 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`[leaderboard-rebuild] ${message}`);
+  const logger = createLogger({
+    level: parseLogLevel(process.env.LOG_LEVEL),
+    bindings: { component: "indexer", job: "leaderboard-rebuild" },
+  });
+  logger.error("indexer fatal", { error });
   process.exitCode = 1;
 });

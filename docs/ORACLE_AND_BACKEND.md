@@ -374,6 +374,10 @@ Runbook:
 The job replays claim and referral-style events, clears `leaderboard`, and
 re-inserts the derived rows in score order.
 
+Set `LOG_LEVEL=debug|info|warn|error` to control how much JSON output the job
+emits while it runs. Each pass logs a structured summary with the number of
+events processed and the current ledger lag.
+
 ---
 
 ### API Endpoints
