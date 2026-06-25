@@ -359,6 +359,21 @@ while (true) {
 }
 ```
 
+### Leaderboard Rebuild Job
+
+When the `events` table needs a clean backfill, rebuild the leaderboard snapshot
+from the raw event log with the standalone job in `indexer/src/`.
+
+Runbook:
+
+1. Export `DATABASE_URL` for the Postgres database that stores `events` and `leaderboard`.
+2. From `indexer/`, run `npm run rebuild:leaderboard`.
+3. Use `npm run rebuild:leaderboard -- --dry-run` first if you want to validate the replay without mutating the table.
+4. If you only want to replay from a specific ledger onward, pass `--since-ledger <number>`.
+
+The job replays claim and referral-style events, clears `leaderboard`, and
+re-inserts the derived rows in score order.
+
 ---
 
 ### API Endpoints
