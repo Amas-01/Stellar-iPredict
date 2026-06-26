@@ -24,13 +24,12 @@ describe("getMarkets", () => {
     ];
 
     const queryMock = vi
-      .fn<Queryable["query"]>()
+      .fn()
       .mockResolvedValueOnce({ rows: marketRows })
       .mockResolvedValueOnce({ rows: [{ total: 17 }] });
 
     const db: Queryable = {
-      query: <T>(text: string, values?: unknown[]) =>
-        queryMock(text, values) as Promise<{ rows: T[] }>
+      query: queryMock as Queryable["query"]
     };
 
     const result = await getMarkets(
