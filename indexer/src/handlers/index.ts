@@ -1,7 +1,11 @@
+import { handleClaim, REWARD_CLAIMED_TOPIC } from "./claim.js";
+import { handleFeeWithdrawn, FEES_WITHDRAWN_TOPIC } from "./fee_withdrawn.js";
 import { handleTokenMint, TOKEN_MINT_TOPIC } from "./token_mint.js";
 import type { DecodedEvent, EventHandler, HandlerContext } from "./types.js";
 
 export const eventHandlers = {
+  [REWARD_CLAIMED_TOPIC]: handleClaim,
+  [FEES_WITHDRAWN_TOPIC]: handleFeeWithdrawn,
   [TOKEN_MINT_TOPIC]: handleTokenMint,
 } satisfies Record<string, EventHandler>;
 
@@ -34,4 +38,6 @@ export async function dispatchEvent(
 }
 
 export type { DecodedEvent, EventHandler, HandlerContext } from "./types.js";
+export { decodeClaim, handleClaim, REWARD_CLAIMED_TOPIC } from "./claim.js";
+export { decodeFeeWithdrawn, handleFeeWithdrawn, FEES_WITHDRAWN_TOPIC } from "./fee_withdrawn.js";
 export { decodeTokenMint, handleTokenMint, TOKEN_MINT_TOPIC } from "./token_mint.js";
