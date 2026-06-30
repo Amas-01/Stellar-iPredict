@@ -41,6 +41,46 @@ export const marketCancelledPayloadSchema = schema((value: unknown) => {
 
 export type MarketCancelledPayload = Infer<typeof marketCancelledPayloadSchema>;
 
+function parseOutcome(value: unknown): boolean {
+  if (typeof value === "boolean") return value;
+
+  if (typeof value === "number") {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "t", "yes", "y", "1"].includes(normalized)) return true;
+    if (["false", "f", "no", "n", "0"].includes(normalized)) return false;
+  }
+
+  throw new ZodValidationError("outcome must be a boolean");
+}
+
+export const marketResolvedPayloadSchema = schema((value: unknown) => {
+  const candidate = Array.isArray(value)
+    ? { market_id: value[0], outcome: value[1] }
+    : value;
+
+  if (candidate === null || typeof candidate !== "object" || Array.isArray(candidate)) {
+    throw new ZodValidationError("market_resolved payload must be an object or tuple");
+  }
+
+  const keys = Object.keys(candidate);
+  if (keys.some((key) => key !== "market_id" && key !== "outcome")) {
+    throw new ZodValidationError("market_resolved payload contains unknown fields");
+  }
+
+  const payload = candidate as { market_id?: unknown; outcome?: unknown };
+  return {
+    market_id: parseMarketId(payload.market_id),
+    outcome: parseOutcome(payload.outcome),
+  };
+});
+
+export type MarketResolvedPayload = Infer<typeof marketResolvedPayloadSchema>;
+
 export const referralRewardPayloadSchema = schema((value: unknown) => {
   let candidate: any = value;
   if (Array.isArray(value)) {
