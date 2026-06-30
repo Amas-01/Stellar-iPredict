@@ -90,13 +90,16 @@ export function installShutdownHandlers(indexer: Indexer): void {
 
 
 import { handleMarketCancelledEvent } from "./handlers/market_cancelled.js";
+import { handleMarketCreatedEvent } from "./handlers/market_created.js";
 import { handleReferralRewardEvent } from "./handlers/referral_reward.js";
 import type { DbClient, DecodedContractEvent, RedisClient } from "./types.js";
 
 export async function writeEventToDb(event: DecodedContractEvent, db: DbClient, redis: RedisClient): Promise<void> {
   const [domain, action] = event.topics;
 
-  if (domain === "mkt" && action === "cancelled") {
+  if (domain === "mkt" && action === "created") {
+    await handleMarketCreatedEvent(event, db, redis);
+  } else if (domain === "mkt" && action === "cancelled") {
     await handleMarketCancelledEvent(event, db, redis);
   } else if (domain === "referral" && action === "reward") {
     await handleReferralRewardEvent(event, db, redis);
