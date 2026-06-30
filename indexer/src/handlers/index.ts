@@ -1,7 +1,9 @@
+import { handleClaim, REWARD_CLAIMED_TOPIC } from "./claim.js";
 import { handleTokenMint, TOKEN_MINT_TOPIC } from "./token_mint.js";
 import type { DecodedEvent, EventHandler, HandlerContext } from "./types.js";
 
 export const eventHandlers = {
+  [REWARD_CLAIMED_TOPIC]: handleClaim,
   [TOKEN_MINT_TOPIC]: handleTokenMint,
 } satisfies Record<string, EventHandler>;
 
@@ -34,4 +36,5 @@ export async function dispatchEvent(
 }
 
 export type { DecodedEvent, EventHandler, HandlerContext } from "./types.js";
+export { decodeClaim, handleClaim, REWARD_CLAIMED_TOPIC } from "./claim.js";
 export { decodeTokenMint, handleTokenMint, TOKEN_MINT_TOPIC } from "./token_mint.js";
