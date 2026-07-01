@@ -1,8 +1,7 @@
-import pg from "pg";
-import { config } from "./config/index.js";
+export interface Queryable {
+  query<T = unknown>(sql: string, params?: readonly unknown[]): Promise<{ rows: T[]; rowCount?: number | null }>;
+}
 
-const { Pool } = pg;
-
-export const pool = new Pool({
-  connectionString: config.DATABASE_URL,
-});
+export interface Closable {
+  end(): Promise<void>;
+}
