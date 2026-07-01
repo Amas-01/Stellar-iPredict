@@ -1,9 +1,13 @@
 
 import { persistDeadLetterEvent } from "./deadLetter.js";
 import { recomputeMarketTotalsFromBets } from "./recomputeTotals.js";
+import { recomputeMarketBetCountsFromBets } from "./recomputeBetCounts.js";
 import type { Closable, Queryable } from "./db.js";
 
+import type { Logger } from "./log.js";
+
 const POLL_INTERVAL_MS = Number(process.env.POLL_INTERVAL_MS ?? 5_000);
+const START_LEDGER = Number(process.env.START_LEDGER ?? 0);
 
 export interface RedisLike extends Closable {
   del(key: string): Promise<unknown>;
@@ -19,6 +23,8 @@ export interface IndexerRuntime {
   writeEventToDb(event: DecodedEvent): Promise<void>;
   sleep(ms: number): Promise<void>;
   recomputeTotals?: boolean;
+  recomputeBetCounts?: boolean;
+  logger?: Logger;
 }
 
 export interface RawEvent { ledger: number; txHash: string; [key: string]: unknown }
@@ -37,8 +43,15 @@ export class Indexer {
 
   async start(): Promise<void> {
     this.lastLedger = await this.runtime.getCheckpoint();
+    if (this.lastLedger <= 0) {
+      this.lastLedger = START_LEDGER;
+    }
     while (!this.stopping) {
-      await this.indexOnce();
+      try {
+        await this.indexOnce();
+      } catch (error) {
+        this.runtime.logger?.error("poll iteration failed", { error });
+      }
       if (!this.stopping) await this.runtime.sleep(POLL_INTERVAL_MS);
     }
     await this.flushAndClose();
@@ -66,6 +79,7 @@ export class Indexer {
     this.lastLedger = response.latestLedger;
     await this.runtime.saveCheckpoint(this.lastLedger);
     if (this.runtime.recomputeTotals) await recomputeMarketTotalsFromBets(this.runtime.db);
+    if (this.runtime.recomputeBetCounts) await recomputeMarketBetCountsFromBets(this.runtime.db);
     return this.lastLedger;
   }
 
@@ -91,6 +105,7 @@ export function installShutdownHandlers(indexer: Indexer): void {
 
 import { handleMarketCancelledEvent } from "./handlers/market_cancelled.js";
 import { handleMarketCreatedEvent } from "./handlers/market_created.js";
+import { handleMarketResolvedEvent } from "./handlers/market_resolved.js";
 import { handleReferralRewardEvent } from "./handlers/referral_reward.js";
 import type { DbClient, DecodedContractEvent, RedisClient } from "./types.js";
 
@@ -99,6 +114,8 @@ export async function writeEventToDb(event: DecodedContractEvent, db: DbClient, 
 
   if (domain === "mkt" && action === "created") {
     await handleMarketCreatedEvent(event, db, redis);
+  } else if (domain === "market_resolved" || (domain === "mkt" && action === "resolved")) {
+    await handleMarketResolvedEvent(event, db, redis);
   } else if (domain === "mkt" && action === "cancelled") {
     await handleMarketCancelledEvent(event, db, redis);
   } else if (domain === "referral" && action === "reward") {
